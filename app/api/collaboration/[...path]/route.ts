@@ -9,6 +9,7 @@ import {
 } from "@/app/lib/backend";
 
 type Context = { params: Promise<{ path: string[] }> };
+export const maxDuration = 300;
 
 // One small, allowlisted proxy keeps every collaboration request behind Gin.
 async function forward(request: Request, context: Context) {

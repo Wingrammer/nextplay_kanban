@@ -3,6 +3,10 @@
 A responsive Kanban board built with Next.js App Router, TypeScript, Tailwind
 CSS, and Poppins. Uses the starter's neutral light/dark palette.
 
+Live frontend: https://nextplay-kanban-pi.vercel.app
+
+Live Gin API and Swagger: https://nextplay-kanban-api.vercel.app/swagger/index.html
+
 ## Architecture
 
 ```text
@@ -101,3 +105,8 @@ on all Next.js instances. Refresh requests are deduplicated within one process;
 multiple instances should coordinate rotation through a shared session store.
 Cookies expire after 30 idle days. Clearing the cookie or changing the encryption
 key loses guest access, so link an account before clearing browser data.
+
+On Vercel, the collaboration proxy allows 300 seconds. Gin ends each SSE stream
+cleanly after 240 seconds; the browser reconnects and reloads its snapshot. Tabs
+share stream ownership to avoid exhausting browser connections. Production Auth
+redirects point to the live frontend; localhost remains an allowed redirect.

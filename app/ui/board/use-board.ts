@@ -121,7 +121,7 @@ export function useBoard() {
         setConnection("Access changed");
         void reload("").catch((value) => setError(value.message));
       }
-      if (event === "session_expired") {
+      if (event === "session_expired" || event === "reconnect") {
         void ensureGuest()
           .then(() => setStreamGeneration((value) => value + 1))
           .catch((value) => setError(value.message));

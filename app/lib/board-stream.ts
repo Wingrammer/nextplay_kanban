@@ -1,4 +1,11 @@
-const events = ["ready", "board_changed", "stream_error", "access_changed", "session_expired"];
+const events = [
+  "ready",
+  "board_changed",
+  "stream_error",
+  "access_changed",
+  "session_expired",
+  "reconnect",
+];
 
 // HTTP/1 browsers permit only a few connections per origin. A Web Lock elects
 // one tab to own each board stream; BroadcastChannel shares invalidations with
