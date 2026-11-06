@@ -7,8 +7,9 @@ export const columns = [
 export type Status = typeof columns[number]["id"];
 export type Member = { id: string; user_id: string | null; name: string; color: string };
 export type Board = { id: string; name: string; owner_id: string; revision: number };
-export type Workspace = { user_id: string; board: Board; boards: Board[]; members: Member[]; tasks: Task[] };
-export type Task = { id: string; title: string; description?: string; status: Status; priority?: string; created_at?: string; assignee_ids: string[] };
+export type Label = { id: string; name: string; color: string };
+export type Workspace = { user_id: string; board: Board; boards: Board[]; members: Member[]; labels: Label[]; tasks: Task[] };
+export type Task = { id: string; title: string; description?: string; status: Status; priority?: string; created_at?: string; assignee_ids: string[]; label_ids: string[] };
 
 export function normalizeStatus(value: string): Status {
   const aliases: Record<string, Status> = { todo: "pending", to_do: "pending", "in progress": "in_progress", done: "completed", complete: "completed" };

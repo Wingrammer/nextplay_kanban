@@ -13,7 +13,7 @@ export function TaskForm({ workspace, task, status, saved, cancel }: { workspace
     const form = new FormData(event.currentTarget);
     const values = {
       title: String(form.get("title")).trim(), description: String(form.get("description")),
-      status: form.get("status"), priority: form.get("priority"), assignee_ids: form.getAll("assignees"),
+      status: form.get("status"), priority: form.get("priority"), assignee_ids: form.getAll("assignees"), label_ids: form.getAll("labels"),
     };
     try {
       await boardRequest(`boards/${workspace.board.id}/tasks${task ? `/${task.id}` : ""}`, task ? "PATCH" : "POST", values);
@@ -31,6 +31,9 @@ export function TaskForm({ workspace, task, status, saved, cancel }: { workspace
     </div>
     <fieldset disabled={busy} className="assignee-picker"><legend>Assignees</legend>
       {workspace.members.map(member => <label key={member.id}><input type="checkbox" name="assignees" value={member.id} defaultChecked={task?.assignee_ids.includes(member.id)} /><Avatar member={member} small /><span>{member.name}</span></label>)}
+    </fieldset>
+    <fieldset disabled={busy} className="assignee-picker"><legend>Labels</legend>
+      {workspace.labels?.length ? workspace.labels.map(label => <label key={label.id}><input type="checkbox" name="labels" value={label.id} defaultChecked={task?.label_ids?.includes(label.id)} /><span className="task-label" style={{ borderColor: label.color }}>{label.name}</span></label>) : <p className="muted tiny">Create labels using the tag button in the board header.</p>}
     </fieldset>
     {error && <p className="form-error" role="alert">{error}</p>}
     <div className="form-actions"><button type="button" className="secondary-button" disabled={busy} onClick={cancel}>Cancel</button><button className="primary-button" disabled={busy}>{busy ? "Saving..." : task ? "Save changes" : "Create task"}</button></div>

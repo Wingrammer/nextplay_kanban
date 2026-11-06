@@ -1,13 +1,13 @@
 "use client";
 
 import { useRef } from "react";
-import { columns, type Member, type Status, type Task } from "@/app/lib/tasks";
+import { columns, type Label, type Member, type Status, type Task } from "@/app/lib/tasks";
 import { Avatar, Icon } from "./primitives";
 
 export type DragPreview = { task: Task; x: number; y: number } | null;
-type Props = { task: Task; members: Member[]; saving: boolean; dragging: boolean; edit: () => void; move: (status: Status) => void; preview: (value: DragPreview) => void; hover: (status: Status | null) => void };
+type Props = { task: Task; members: Member[]; labels: Label[]; saving: boolean; dragging: boolean; edit: () => void; move: (status: Status) => void; preview: (value: DragPreview) => void; hover: (status: Status | null) => void };
 
-export function TaskCard({ task, members, saving, dragging, edit, move, preview, hover }: Props) {
+export function TaskCard({ task, members, labels, saving, dragging, edit, move, preview, hover }: Props) {
   const pointer = useRef({ x: 0, y: 0, active: false });
   const stage = columns.findIndex(column => column.id === task.status);
   const assigned = members.filter(member => task.assignee_ids.includes(member.id));
@@ -52,6 +52,7 @@ export function TaskCard({ task, members, saving, dragging, edit, move, preview,
     <button className="card-content" onClick={edit} disabled={saving}>
       <h3>{task.title}</h3><p>{task.description || "Add a little context to this task."}</p>
     </button>
+    <div className="task-labels">{labels.filter(label => task.label_ids?.includes(label.id)).map(label => <span key={label.id} className="task-label" style={{ borderColor: label.color }}>{label.name}</span>)}</div>
     <div className="card-progress"><span>Stage</span><span>{stage + 1}/4</span></div>
     <div className="progress-segments">{columns.map((column, index) => <span key={column.id} className={index <= stage ? "filled" : ""} />)}</div>
     <div className="card-bottom">
