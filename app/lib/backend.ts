@@ -10,7 +10,7 @@ export async function backend(path: string, init: RequestInit = {}) {
   const base = process.env.KANBAN_BACKEND_URL;
   if (!base) throw new ApiError("KANBAN_BACKEND_URL is not configured", 503);
   return fetch(`${base.replace(/\/$/, "")}${path}`, {
-    ...init, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15000),
+    ...init, cache: "no-store", redirect: "error", signal: init.signal ?? AbortSignal.timeout(15000),
   });
 }
 

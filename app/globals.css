@@ -123,6 +123,23 @@ body {
 .task-card::before { content: ""; position: absolute; top: -13px; left: -1px; width: 40%; height: 14px; background: var(--surface); border: 1px solid var(--line); border-bottom: 0; border-radius: 7px 12px 0 0; transform: perspective(100px) rotateX(8deg); transform-origin: bottom; z-index: -1; }
 .task-card::after { content: ""; position: absolute; top: -5px; left: 43%; right: 11px; height: 5px; background: var(--subtle); border: 1px solid var(--line); border-bottom: 0; border-radius: 3px 3px 0 0; z-index: -1; }
 .task-card:hover { box-shadow: 0 4px 0 -1px var(--line), 0 12px 23px -12px #00000040, inset 0 1px 0 #ffffff30; }
+.heading-actions,.team-button,.avatar-stack { display:flex; align-items:center; gap:9px; }
+.avatar-stack { gap:0; }.avatar-stack .avatar + .avatar { margin-left:-6px; }
+.team-button { padding:6px; border-radius:7px; }.team-button:hover { background:var(--subtle); }
+.card-bottom > select { font-size:9px; background:transparent; color:var(--muted); max-width:100px; }
+.muted { color:var(--muted); }.tiny { font-size:9px; }
+.view-tabs .active-view { color:var(--ink); border-bottom-color:var(--ink); }
+.live-status { font-size:9px; border:1px solid var(--line); padding:2px 6px; border-radius:10px; }
+.member-list { list-style:none; padding:0; margin:20px 0; max-height:240px; overflow:auto; }
+.member-list li { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line,#e4e4e7); }
+.member-list li > div { flex:1; }.member-list strong { display:block; font-size:11px; font-weight:500; }.member-list span:not(.avatar) { display:block; font-size:10px; color:#71717a; }
+.member-add { display:grid; grid-template-columns:1fr 55px; gap:12px; }.member-add input[type=color] { height:38px; padding:4px; }
+.invitation-result { margin-top:20px; border:1px solid var(--line,#e4e4e7); border-radius:8px; padding:14px; }
+.invitation-result strong { font-weight:500; }.invitation-result p { font-size:10px; color:#71717a; margin:7px 0; }.invitation-result input { width:100%; padding:8px; border:1px solid #71717a; border-radius:5px; margin:5px 0 10px; font-size:10px; }
+.assignee-picker { border:1px solid #71717a40; border-radius:7px; padding:10px; }.assignee-picker legend { padding:0 5px; font-size:11px; }.assignee-picker label { display:flex; flex-direction:row; align-items:center; gap:8px; padding:5px; }.assignee-picker input { width:14px; accent-color:var(--foreground); }
+.mobile-board-select { display:none; }
+@media(max-width:1100px) { .mobile-board-select { display:block; margin-bottom:18px; }.mobile-board-select label { display:flex; align-items:center; gap:10px; color:var(--muted); font-size:10px; }.mobile-board-select select { border:1px solid var(--line); padding:5px; border-radius:5px; background:var(--surface); color:var(--ink); } }
+@media(max-width:700px) { .heading-actions { gap:3px; }.team-button .avatar-stack { display:none; }.board-summary > span:last-child { gap:6px; }.live-status { display:none; } }
 @media (min-width: 1450px) { .workspace-sidebar { width: 250px; }.board-main { padding: 37px 40px 25px; }.kanban-board { gap: 22px; }.task-card { padding: 17px; }.card-content h3 { font-size: 13px; }.card-content p { font-size: 11px; }.priority { font-size: 9px; }.column-heading h2 { font-size: 12px; } }
 @media (max-width: 1150px) { .workspace-sidebar { width: 190px; }.workspace-name { padding-left: 18px; }.board-main { padding: 28px 21px 20px; }.kanban-board { gap: 10px; }.column-heading { gap: 6px; padding: 7px; }.card-content h3 { font-size: 10px; }.task-card { padding: 11px 9px; }.priority { font-size: 7px; }.board-description { font-size: 10px; } }
 @media (max-width: 1100px) { .workspace-sidebar { display: none; }.topbar { padding: 0 23px; height: 70px; }.board-main { padding-top: 25px; }.icon-rail { width: 58px; }.card-content h3 { font-size: 11px; }.board-title h1 { font-size: 25px; } }
