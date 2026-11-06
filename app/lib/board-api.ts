@@ -11,6 +11,7 @@ export async function boardRequest<T>(path: string, method = "GET", data?: unkno
   const response = await fetch(`/api/collaboration/${path}`, {
     method,
     cache: "no-store",
+    signal: AbortSignal.timeout(20000),
     ...(data === undefined
       ? {}
       : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }),
@@ -29,7 +30,7 @@ export async function boardRequest<T>(path: string, method = "GET", data?: unkno
 let opening: Promise<void> | null = null;
 export function ensureGuest(): Promise<void> {
   if (!opening)
-    opening = fetch("/api/auth/guest", { method: "POST" })
+    opening = fetch("/api/auth/guest", { method: "POST", signal: AbortSignal.timeout(20000) })
       .then(async (response) => {
         if (!response.ok) {
           const result = await response.json();

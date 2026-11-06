@@ -43,6 +43,10 @@ Only two frontend environment variables are required:
 | -------------------------- | ------------------------------------------------------- |
 | `POST /api/auth/guest`     | `POST /auth/guest` (only when there is no session)      |
 | `POST /api/auth/link`      | `POST /auth/link`                                       |
+| `GET /api/auth/account`    | `GET /auth/account` (current verified account state)    |
+| `POST /api/auth/session`   | `POST /auth/session` (confirmation return)              |
+| `POST /api/auth/password`  | `POST /auth/password` (after verification)              |
+| `POST /api/auth/login`     | `POST /auth/login`                                      |
 | `GET /api/tasks`           | `GET /users/:user_id/tasks` using the session's user ID |
 | `POST /api/tasks`          | `POST /tasks` using the session's user ID               |
 | `GET /api/tasks/:taskId`   | `GET /tasks/:task_id`                                   |
@@ -61,15 +65,17 @@ host and protocol. Session responses and task requests disable caching.
   their status menu. Changes save through Gin and roll back on failure.
 - Board/list views, responsive columns, loading skeletons, empty states, and
   retryable errors.
-- Link a guest to email/password from the account button. Login, recovery, and
-  email callback screens are outside this guest-to-account flow.
+- Save a guest by confirming an email, then setting a password. Confirmation
+  returns are handled and account state is re-read from Gin. Existing accounts
+  can sign in from the same dialog. Password recovery is not implemented.
 
 ## Collaboration features
 
 - Shared boards with named team members, optional accent colors, multiple task
-  assignees, and assignee avatars. Owners create private invitation links from
-  the team dialog; links expire in seven days and are single-use.
-- Gin SSE delivers changes after committed writes. Drag previews are local;
+  assignees, and assignee avatars. Owners invite by email; verified recipients
+  accept or decline in their own workspace. Invitations expire in seven days.
+- Supabase Realtime Postgres Changes reaches Gin through an authenticated
+  WebSocket. Gin relays SSE after committed writes. Drag previews are local;
   drops use optimistic UI and last-committed-write-wins reconciliation.
 - Task details include persistent chronological comments and a timestamped
   activity timeline generated atomically by database triggers.

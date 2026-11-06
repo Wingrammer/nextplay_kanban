@@ -12,6 +12,7 @@ import { TaskDiscussion } from "./board/task-discussion";
 import { LabelsDialog } from "./board/labels-dialog";
 import { filterTasks } from "@/app/lib/filters";
 import { BoardStats } from "./board/board-stats";
+import { Invitations } from "./board/invitations";
 
 // The shell owns view preferences; useBoard owns network state and reconciliation.
 export default function SessionPanel() {
@@ -31,6 +32,7 @@ export default function SessionPanel() {
   const [over, setOver] = useState<Status | null>(null);
   const [accountError, setAccountError] = useState("");
   const [accountBusy, setAccountBusy] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
@@ -68,14 +70,28 @@ export default function SessionPanel() {
     setAccountError("");
     const form = new FormData(event.currentTarget);
     try {
-      const response = await fetch("/api/auth/link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.get("email"), password: form.get("password") }),
-      });
+      const response = await fetch(
+        signingIn
+          ? "/api/auth/login"
+          : board.account?.confirmed
+            ? "/api/auth/password"
+            : "/api/auth/link",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: form.get("email"), password: form.get("password") }),
+          signal: AbortSignal.timeout(20000),
+        },
+      );
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
-      board.setNotice(result.message);
+      if (signingIn) {
+        window.localStorage.removeItem("kanban_board");
+        window.location.reload();
+        return;
+      }
+      await board.refreshAccount();
+      board.setNotice(result.message || "Password saved. Your account is ready.");
       setModal(null);
     } catch (value) {
       setAccountError(value instanceof Error ? value.message : "Unable to link account");
@@ -175,16 +191,21 @@ export default function SessionPanel() {
             <Icon name="chevron" size={12} />
             <strong>{workspace?.board.name || "Your board"}</strong>
           </nav>
-          <button
-            className="account-button"
-            disabled={!workspace}
-            onClick={() => setModal("account")}
-          >
-            <span className="avatar small">G</span>
-            <span>Save my account</span>
+          <button className="account-button" disabled={loading} onClick={() => setModal("account")}>
+            <span className="avatar small">
+              {board.account?.confirmed ? board.account.email.slice(0, 1).toUpperCase() : "G"}
+            </span>
+            <span>
+              {board.account?.confirmed
+                ? board.account.password_configured
+                  ? board.account.email
+                  : "Set your password"
+                : "Save my account"}
+            </span>
           </button>
         </header>
         <main className="board-main">
+          {workspace && <Invitations joined={board.switchBoard} />}
           <div className="board-heading">
             <div>
               <p className="eyebrow">YOUR IDEAS, IN MOTION</p>
@@ -521,7 +542,11 @@ export default function SessionPanel() {
         <Modal title="Make this space yours" close={() => setModal(null)}>
           <form className="workspace-form" onSubmit={linkAccount}>
             <p className="form-intro">
-              Keep this workspace by linking your guest account to an email and password.
+              {signingIn
+                ? "Sign in to an existing account. Your current guest workspace stays with its guest identity."
+                : board.account?.confirmed
+                  ? "Your email is confirmed. Set a password to finish saving your account."
+                  : "First confirm your email. Then return here to set your password."}
             </p>
             <label>
               Email
@@ -530,21 +555,24 @@ export default function SessionPanel() {
                 name="email"
                 required
                 autoComplete="email"
-                disabled={accountBusy}
+                defaultValue={board.account?.email || ""}
+                disabled={accountBusy || (!signingIn && board.account?.confirmed)}
               />
             </label>
-            <label>
-              Password
-              <input
-                type="password"
-                name="password"
-                required
-                minLength={8}
-                maxLength={256}
-                autoComplete="new-password"
-                disabled={accountBusy}
-              />
-            </label>
+            {(signingIn || board.account?.confirmed) && (
+              <label>
+                Password
+                <input
+                  type="password"
+                  name="password"
+                  required
+                  minLength={8}
+                  maxLength={256}
+                  autoComplete={signingIn ? "current-password" : "new-password"}
+                  disabled={accountBusy}
+                />
+              </label>
+            )}
             {accountError && (
               <p role="alert" className="form-error">
                 {accountError}
@@ -555,9 +583,26 @@ export default function SessionPanel() {
                 Cancel
               </button>
               <button className="primary-button" disabled={accountBusy}>
-                {accountBusy ? "Saving..." : "Save my account"}
+                {accountBusy
+                  ? "Saving..."
+                  : signingIn
+                    ? "Sign in"
+                    : board.account?.confirmed
+                      ? "Save password"
+                      : "Send confirmation email"}
               </button>
             </div>
+            <button
+              type="button"
+              className="text-button"
+              disabled={accountBusy}
+              onClick={() => {
+                setSigningIn(!signingIn);
+                setAccountError("");
+              }}
+            >
+              {signingIn ? "Back to saving this workspace" : "Already have an account? Sign in"}
+            </button>
           </form>
         </Modal>
       )}

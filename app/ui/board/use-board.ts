@@ -2,10 +2,26 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { boardRequest, ensureGuest } from "@/app/lib/board-api";
+import { finishAuthReturn } from "@/app/lib/auth-return";
+import { subscribeBoard } from "@/app/lib/board-stream";
 import { normalizeStatus, type Status, type Task, type Workspace } from "@/app/lib/tasks";
 
 export function useBoard() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [account, setAccount] = useState<{
+    email: string;
+    confirmed: boolean;
+    password_configured: boolean;
+  } | null>(null);
+  const refreshAccount = useCallback(async () => {
+    const response = await fetch("/api/auth/account", {
+      cache: "no-store",
+      signal: AbortSignal.timeout(20000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Unable to verify your account");
+    setAccount(result);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -36,7 +52,9 @@ export function useBoard() {
   useEffect(() => {
     let active = true;
     async function initialize() {
+      await finishAuthReturn();
       await ensureGuest();
+      await refreshAccount();
       const url = new URL(window.location.href);
       let selected = window.localStorage.getItem("kanban_board") || undefined;
       if (url.searchParams.has("invite")) {
@@ -72,7 +90,16 @@ export function useBoard() {
     return () => {
       active = false;
     };
-  }, [reload]);
+  }, [reload, refreshAccount]);
+
+  useEffect(() => {
+    // Confirmation may happen in a second tab. Re-read Auth when this tab regains focus.
+    const focus = () => {
+      void refreshAccount().catch(() => {});
+    };
+    window.addEventListener("focus", focus);
+    return () => window.removeEventListener("focus", focus);
+  }, [refreshAccount]);
 
   // SSE carries invalidations after committed writes, never drag coordinates.
   // Reconnect always reloads a snapshot, which repairs events missed offline.
@@ -80,32 +107,28 @@ export function useBoard() {
     const id = workspace?.board.id;
     if (!id) return;
     window.localStorage.setItem("kanban_board", id); // Only a board ID, never tokens.
-    const stream = new EventSource(`/api/collaboration/boards/${id}/events`);
     const reconcile = () => {
       void reload().catch(() => setConnection("Reconnecting"));
     };
-    stream.addEventListener("ready", () => {
-      setConnection("Live");
-      reconcile();
+    const stop = subscribeBoard(id, workspace.user_id, (event) => {
+      if (event === "ready") {
+        setConnection("Live");
+        reconcile();
+      }
+      if (event === "board_changed") reconcile();
+      if (event === "stream_error") setConnection("Reconnecting");
+      if (event === "access_changed") {
+        setConnection("Access changed");
+        void reload("").catch((value) => setError(value.message));
+      }
+      if (event === "session_expired") {
+        void ensureGuest()
+          .then(() => setStreamGeneration((value) => value + 1))
+          .catch((value) => setError(value.message));
+      }
     });
-    stream.addEventListener("board_changed", reconcile);
-    stream.addEventListener("stream_error", () => setConnection("Reconnecting"));
-    stream.addEventListener("access_changed", () => {
-      stream.close();
-      setConnection("Access changed");
-      void reload("").catch((value) => setError(value.message));
-    });
-    stream.addEventListener("session_expired", () => {
-      stream.close();
-      void ensureGuest()
-        .then(() => setStreamGeneration((value) => value + 1))
-        .catch((value) => setError(value.message));
-    });
-    stream.onerror = () => setConnection("Reconnecting");
-    return () => {
-      stream.close();
-    };
-  }, [workspace?.board.id, streamGeneration, reload]);
+    return stop;
+  }, [workspace?.board.id, workspace?.user_id, streamGeneration, reload]);
 
   async function move(task: Task, status: Status) {
     if (optimistic.current.has(task.id) || task.status === status || !workspace) return;
@@ -156,6 +179,8 @@ export function useBoard() {
   }
   return {
     workspace,
+    account,
+    refreshAccount,
     loading,
     error,
     notice,

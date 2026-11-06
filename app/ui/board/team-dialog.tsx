@@ -1,9 +1,8 @@
 "use client";
-
 import { useState, type FormEvent } from "react";
 import { boardRequest } from "@/app/lib/board-api";
 import type { Workspace } from "@/app/lib/tasks";
-import { Avatar, Icon, Modal } from "./primitives";
+import { Avatar, Modal } from "./primitives";
 
 export function TeamDialog({
   workspace,
@@ -15,39 +14,35 @@ export function TeamDialog({
   reload: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
-  const [link, setLink] = useState("");
   const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
-  const owner = workspace.user_id === workspace.board.owner_id;
-  async function invite(values: Record<string, unknown>) {
+  const [notice, setNotice] = useState("");
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
     setBusy(true);
     setError("");
-    setCopied(false);
+    setNotice("");
     try {
-      const result = await boardRequest<{ token: string }>(
+      const result = await boardRequest<{ email: string }>(
         `boards/${workspace.board.id}/members`,
         "POST",
-        values,
+        { email: form.get("email"), name: form.get("name"), color: form.get("color") },
       );
-      const url = new URL("/", window.location.origin);
-      url.searchParams.set("invite", result.token);
-      setLink(url.toString());
+      setNotice(
+        `Invitation is waiting in ${result.email}'s workspace. They must sign in with that verified email to accept it.`,
+      );
       await reload();
     } catch (value) {
-      setError(value instanceof Error ? value.message : "Unable to invite member");
+      setError(value instanceof Error ? value.message : "Unable to create invitation");
     } finally {
       setBusy(false);
     }
   }
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    void invite({ name: form.get("name"), color: form.get("color") });
-  }
   return (
-    <Modal title="A small team, big ideas" close={close}>
+    <Modal title="Team members" close={close}>
       <p className="form-intro">
-        Assign tasks to named members. An invitation connects their own guest account to this board.
+        Invite by email. The recipient can accept or decline in their own workspace. No email
+        message is sent.
       </p>
       <ul className="member-list">
         {workspace.members.map((member) => (
@@ -55,32 +50,28 @@ export function TeamDialog({
             <Avatar member={member} />
             <div>
               <strong>{member.name}</strong>
-              <span>{member.user_id ? "Connected" : "Not connected yet"}</span>
+              <span>{member.user_id ? "Connected" : "Invitation pending"}</span>
             </div>
-            {owner && !member.user_id && (
-              <button
-                className="text-button"
-                disabled={busy}
-                onClick={() => void invite({ member_id: member.id, name: member.name })}
-              >
-                New invitation
-              </button>
-            )}
           </li>
         ))}
       </ul>
-      {owner && (
+      {workspace.user_id === workspace.board.owner_id && (
         <form className="workspace-form" onSubmit={submit}>
+          <label>
+            Email address
+            <input
+              name="email"
+              type="email"
+              required
+              maxLength={254}
+              autoComplete="email"
+              disabled={busy}
+            />
+          </label>
           <div className="member-add">
             <label>
-              Member name
-              <input
-                name="name"
-                required
-                maxLength={80}
-                placeholder="e.g. Alex Chen"
-                disabled={busy}
-              />
+              Display name (optional)
+              <input name="name" maxLength={80} disabled={busy} />
             </label>
             <label>
               Color
@@ -88,34 +79,11 @@ export function TeamDialog({
             </label>
           </div>
           <button className="primary-button" disabled={busy}>
-            <Icon name="plus" size={15} />
-            {busy ? "Creating..." : "Add member & create invitation"}
+            {busy ? "Inviting…" : "Invite to workspace"}
           </button>
         </form>
       )}
-      {link && (
-        <div className="invitation-result">
-          <strong>Share this invitation privately</strong>
-          <p>Single use. Expires in 7 days. Anyone holding this link can join this board.</p>
-          <input
-            aria-label="Invitation link"
-            value={link}
-            readOnly
-            onFocus={(event) => event.currentTarget.select()}
-          />
-          <button
-            className="secondary-button"
-            onClick={() => {
-              void navigator.clipboard
-                .writeText(link)
-                .then(() => setCopied(true))
-                .catch(() => setError("Select and copy the invitation link manually."));
-            }}
-          >
-            {copied ? "Copied" : "Copy invitation"}
-          </button>
-        </div>
-      )}
+      {notice && <p role="status">{notice}</p>}
       {error && (
         <p className="form-error" role="alert">
           {error}

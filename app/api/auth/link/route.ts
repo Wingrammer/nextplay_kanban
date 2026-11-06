@@ -13,20 +13,14 @@ export async function POST(request: Request) {
   return handle(async () => {
     sameOrigin(request);
     const session = await requireSession();
-    const { email, password } = await body(request);
-    if (
-      typeof email !== "string" ||
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ||
-      typeof password !== "string" ||
-      password.length < 8 ||
-      password.length > 256
-    ) {
+    const { email } = await body(request);
+    if (typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       throw new ApiError("Enter a valid email and a password of 8–256 characters", 400);
     }
     const response = await authorized("/auth/link", session, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.trim(), password }),
+      body: JSON.stringify({ email: email.trim() }),
     });
     if (!response.ok)
       return json(

@@ -19,8 +19,10 @@ async function forward(request: Request, context: Context) {
       request.method === "DELETE"
         ? /^boards\/[^/]+$/.test(route)
         : request.method === "GET"
-          ? /^(workspace|boards\/[^/]+\/events|boards\/[^/]+\/tasks\/[^/]+)$/.test(route)
-          : /^(invitations\/accept|boards\/[^/]+\/(members|labels|tasks)|boards\/[^/]+\/tasks\/[^/]+(\/(comments|labels))?)$/.test(
+          ? /^(workspace|invitations|boards\/[^/]+\/events|boards\/[^/]+\/tasks\/[^/]+)$/.test(
+              route,
+            )
+          : /^(invitations\/(accept|respond)|boards\/[^/]+\/(members|labels|tasks)|boards\/[^/]+\/tasks\/[^/]+(\/(comments|labels))?)$/.test(
               route,
             );
     if (!allowed) return Response.json({ error: "Route not found" }, { status: 404 });
