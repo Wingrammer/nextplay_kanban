@@ -14,6 +14,7 @@ export function TaskForm({ workspace, task, status, saved, cancel }: { workspace
     const values = {
       title: String(form.get("title")).trim(), description: String(form.get("description")),
       status: form.get("status"), priority: form.get("priority"), assignee_ids: form.getAll("assignees"), label_ids: form.getAll("labels"),
+      due_date: form.get("due_date") ? `${form.get("due_date")}T12:00:00Z` : null,
     };
     try {
       await boardRequest(`boards/${workspace.board.id}/tasks${task ? `/${task.id}` : ""}`, task ? "PATCH" : "POST", values);
@@ -32,6 +33,7 @@ export function TaskForm({ workspace, task, status, saved, cancel }: { workspace
     <fieldset disabled={busy} className="assignee-picker"><legend>Assignees</legend>
       {workspace.members.map(member => <label key={member.id}><input type="checkbox" name="assignees" value={member.id} defaultChecked={task?.assignee_ids.includes(member.id)} /><Avatar member={member} small /><span>{member.name}</span></label>)}
     </fieldset>
+    <label>Due date <span className="muted tiny">Optional. Uses your local calendar day.</span><input name="due_date" type="date" min="1900-01-01" max="9999-12-31" defaultValue={task?.due_date?.slice(0, 10)} disabled={busy} /></label>
     <fieldset disabled={busy} className="assignee-picker"><legend>Labels</legend>
       {workspace.labels?.length ? workspace.labels.map(label => <label key={label.id}><input type="checkbox" name="labels" value={label.id} defaultChecked={task?.label_ids?.includes(label.id)} /><span className="task-label" style={{ borderColor: label.color }}>{label.name}</span></label>) : <p className="muted tiny">Create labels using the tag button in the board header.</p>}
     </fieldset>

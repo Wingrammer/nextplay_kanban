@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { columns, type Status, type Task } from "@/app/lib/tasks";
 import { Avatar, Icon, Modal } from "./board/primitives";
 import { TaskCard, type DragPreview } from "./board/task-card";
@@ -28,6 +28,8 @@ export default function SessionPanel() {
   const [over, setOver] = useState<Status | null>(null);
   const [accountError, setAccountError] = useState("");
   const [accountBusy, setAccountBusy] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const timer = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(timer); }, []);
   const visible = tasks.filter(task => (category === "all" || task.status === category)
     && (priority === "all" || task.priority === priority)
     && (labelFilter === "all" || task.label_ids?.includes(labelFilter))
@@ -98,7 +100,7 @@ export default function SessionPanel() {
           {columns.map((column, index) => <section key={column.id} data-column={column.id} className={`board-column ${drag && over === column.id ? "drop-active" : ""}`} aria-label={column.label}>
             <div className="column-heading"><span className={`status-dot dot-${index}`} /><h2>{column.label}</h2><span className="column-count">{visible.filter(task => task.status === column.id).length}</span><button className="icon-button" disabled={!workspace} onClick={() => openTask(undefined, column.id)} aria-label={`Add task to ${column.label}`}><Icon name="plus" size={16} /></button></div>
             <div className="column-body">
-              {loading && !workspace ? [0, 1].map(value => <div className="task-skeleton" key={value}><span /><span /><span /></div>) : visible.filter(task => task.status === column.id).map(task => <TaskCard key={task.id} task={task} members={workspace?.members || []} labels={workspace?.labels || []} saving={saving.has(task.id)} dragging={drag?.task.id === task.id} edit={() => openTask(task)} move={status => void board.move(task, status)} preview={setDrag} hover={setOver} />)}
+              {loading && !workspace ? [0, 1].map(value => <div className="task-skeleton" key={value}><span /><span /><span /></div>) : visible.filter(task => task.status === column.id).map(task => <TaskCard key={task.id} task={task} members={workspace?.members || []} labels={workspace?.labels || []} now={now} saving={saving.has(task.id)} dragging={drag?.task.id === task.id} edit={() => openTask(task)} move={status => void board.move(task, status)} preview={setDrag} hover={setOver} />)}
               {!loading && !visible.some(task => task.status === column.id) && <div className="column-empty"><span className="empty-icon"><Icon name={index === 3 ? "check" : "folder"} size={20} /></span><strong>{query || priority !== "all" ? "No matching tasks" : "A little room for progress"}</strong><p>{column.short}</p><button className="text-button" disabled={!workspace} onClick={() => openTask(undefined, column.id)}>Add a task <Icon name="plus" size={13} /></button></div>}
             </div>
           </section>)}
