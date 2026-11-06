@@ -8,6 +8,7 @@ import { TaskCard, type DragPreview } from "./board/task-card";
 import { TaskForm } from "./board/task-form";
 import { TeamDialog } from "./board/team-dialog";
 import { useBoard } from "./board/use-board";
+import { TaskDiscussion } from "./board/task-discussion";
 
 // The shell owns view preferences; useBoard owns network state and reconciliation.
 export default function SessionPanel() {
@@ -103,7 +104,7 @@ export default function SessionPanel() {
     {drag && <div className="drag-preview" style={{ left: drag.x + 14, top: drag.y + 12 }}><span className="eyebrow">MOVING TASK</span><strong>{drag.task.title}</strong><p>Drop into a column</p></div>}
     {notice && <div className="toast" role="status"><Icon name="check" size={16} /><span>{notice}</span><button aria-label="Dismiss notification" onClick={() => board.setNotice("")}><Icon name="close" size={14} /></button></div>}
     {modal === "team" && workspace && <TeamDialog workspace={workspace} close={() => setModal(null)} reload={board.reload} />}
-    {modal === "task" && workspace && <Modal title={selected ? "Task details" : "A new little step"} close={() => setModal(null)}><TaskForm key={selected?.id || "new"} workspace={workspace} task={selected} status={newStatus} cancel={() => setModal(null)} saved={() => { setModal(null); board.setNotice("Task saved."); void board.reload(); }} /></Modal>}
+    {modal === "task" && workspace && <Modal title={selected ? "Task details" : "A new little step"} wide={!!selected} close={() => setModal(null)}><TaskForm key={selected?.id || "new"} workspace={workspace} task={selected} status={newStatus} cancel={() => setModal(null)} saved={() => { setModal(null); board.setNotice("Task saved."); void board.reload(); }} />{selected && <TaskDiscussion workspace={workspace} task={selected} />}</Modal>}
     {modal === "account" && <Modal title="Make this space yours" close={() => setModal(null)}><form className="workspace-form" onSubmit={linkAccount}><p className="form-intro">Keep this workspace by linking your guest account to an email and password.</p><label>Email<input type="email" name="email" required autoComplete="email" disabled={accountBusy} /></label><label>Password<input type="password" name="password" required minLength={8} maxLength={256} autoComplete="new-password" disabled={accountBusy} /></label>{accountError && <p role="alert" className="form-error">{accountError}</p>}<div className="form-actions"><button type="button" className="secondary-button" onClick={() => setModal(null)}>Cancel</button><button className="primary-button" disabled={accountBusy}>{accountBusy ? "Saving..." : "Save my account"}</button></div></form></Modal>}
   </div>;
 }
