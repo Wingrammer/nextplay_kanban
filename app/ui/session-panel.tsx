@@ -11,6 +11,7 @@ import { useBoard } from "./board/use-board";
 import { TaskDiscussion } from "./board/task-discussion";
 import { LabelsDialog } from "./board/labels-dialog";
 import { filterTasks } from "@/app/lib/filters";
+import { BoardStats } from "./board/board-stats";
 
 // The shell owns view preferences; useBoard owns network state and reconciliation.
 export default function SessionPanel() {
@@ -86,6 +87,7 @@ export default function SessionPanel() {
           <div className="heading-actions"><button className="team-button" onClick={() => setModal("team")} disabled={!workspace} aria-label="Manage team"><span className="avatar-stack">{workspace?.members.slice(0, 3).map(member => <Avatar key={member.id} member={member} small />)}</span><Icon name="team" size={17} /></button><button className="primary-button" disabled={!workspace} onClick={() => openTask()}><Icon name="plus" size={16} />New task</button></div>
         </div>
         <div className="mobile-board-select"><label>Board<select value={workspace?.board.id || ""} onChange={event => void board.switchBoard(event.target.value)}>{workspace?.boards.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>
+        <BoardStats tasks={tasks} now={now} loading={loading} />
         <div className="board-toolbar">
           <div className="view-tabs">{["board", "list"].map(value => <button key={value} aria-pressed={view === value} className={view === value ? "active-view" : ""} onClick={() => setView(value)}><Icon name={value} size={16} />{value === "board" ? "Board" : "List"}</button>)}</div>
           <div className="toolbar-controls">
