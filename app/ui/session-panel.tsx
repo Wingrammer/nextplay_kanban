@@ -10,6 +10,7 @@ import { TeamDialog } from "./board/team-dialog";
 import { useBoard } from "./board/use-board";
 import { TaskDiscussion } from "./board/task-discussion";
 import { LabelsDialog } from "./board/labels-dialog";
+import { filterTasks } from "@/app/lib/filters";
 
 // The shell owns view preferences; useBoard owns network state and reconciliation.
 export default function SessionPanel() {
@@ -19,6 +20,7 @@ export default function SessionPanel() {
   const [query, setQuery] = useState("");
   const [priority, setPriority] = useState("all");
   const [labelFilter, setLabelFilter] = useState("all");
+  const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [category, setCategory] = useState<Status | "all">("all");
   const [view, setView] = useState("board");
   const [modal, setModal] = useState<"task" | "team" | "account" | "labels" | null>(null);
@@ -30,10 +32,10 @@ export default function SessionPanel() {
   const [accountBusy, setAccountBusy] = useState(false);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const timer = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(timer); }, []);
-  const visible = tasks.filter(task => (category === "all" || task.status === category)
-    && (priority === "all" || task.priority === priority)
-    && (labelFilter === "all" || task.label_ids?.includes(labelFilter))
-    && `${task.title} ${task.description || ""}`.toLowerCase().includes(query.toLowerCase()));
+  const myMemberID = workspace?.members.find(member => member.user_id === workspace.user_id)?.id;
+  const visible = filterTasks(tasks, { query, priority, status: category, assignee: assigneeFilter, label: labelFilter }, myMemberID);
+  const filtered = !!query.trim() || priority !== "all" || category !== "all" || labelFilter !== "all" || assigneeFilter !== "all";
+  function clearFilters() { setQuery(""); setPriority("all"); setCategory("all"); setLabelFilter("all"); setAssigneeFilter("all"); }
   const complete = tasks.filter(task => task.status === "completed").length;
 
   function openTask(task?: Task, status: Status = "pending") {
@@ -91,9 +93,11 @@ export default function SessionPanel() {
             <label className="search-box"><Icon name="search" size={16} /><input aria-label="Search tasks" placeholder="Search tasks..." value={query} onChange={event => setQuery(event.target.value)} /></label>
             <label className="filter-box"><select aria-label="Filter by priority" value={priority} onChange={event => setPriority(event.target.value)}><option value="all">All priorities</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label>
             <label className="filter-box"><select aria-label="Filter by label" value={labelFilter} onChange={event => setLabelFilter(event.target.value)}><option value="all">All labels</option>{workspace?.labels?.map(label => <option key={label.id} value={label.id}>{label.name}</option>)}</select></label>
+            <label className="filter-box"><select aria-label="Filter by assignee" value={assigneeFilter} onChange={event => setAssigneeFilter(event.target.value)}><option value="all">All assignees</option><option value="me">Assigned to me</option><option value="unassigned">Unassigned</option>{workspace?.members.map(member => <option key={member.id} value={member.id}>{member.name}</option>)}</select></label>
             <button className="icon-button" aria-label="Refresh board" disabled={loading} onClick={() => void board.reload().catch(value => board.setError(value.message))}><Icon name="refresh" size={16} /></button>
           </div>
         </div>
+        {filtered && <div className="active-filters"><span>{visible.length} of {tasks.length} tasks match your filters</span><button className="text-button" onClick={clearFilters}>Clear all filters <Icon name="close" size={12} /></button></div>}
         <div className="board-summary"><span>{loading ? "Opening your workspace..." : `${visible.length} tasks in this view`}</span><span>{complete} of {tasks.length} complete <span className="summary-track"><span style={{ width: `${tasks.length ? complete / tasks.length * 100 : 0}%` }} /></span><span className="live-status">{board.connection}</span></span></div>
         {error && <div className="error-banner" role="alert"><div><strong>We couldn&apos;t finish that request</strong><p>{error}</p></div><button className="text-button" onClick={() => { window.location.reload(); }}>Try again</button></div>}
         {view === "board" ? <div className="kanban-board" aria-busy={loading}>
