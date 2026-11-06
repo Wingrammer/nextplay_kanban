@@ -13,7 +13,10 @@ export function dueInfo(task: Pick<Task, "status" | "due_date">, now = new Date(
   const today = calendarDay(now);
   const soon = calendarDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2));
   const [year, month, date] = day.split("-").map(Number);
-  const label = new Date(year, month - 1, date).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const label = new Date(year, month - 1, date).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
   if (day < today) return { state: "overdue", label: `Overdue · ${label}` };
   if (day === today) return { state: "soon", label: "Due today" };
   if (day <= soon) return { state: "soon", label: `Due soon · ${label}` };

@@ -12,9 +12,12 @@ export async function POST(request: Request) {
     sameOrigin(request);
     const session = await requireSession();
     const task = await body(request);
-    return proxy(await authorized("/tasks", session, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...task, user_id: session.user.id }),
-    }));
+    return proxy(
+      await authorized("/tasks", session, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...task, user_id: session.user.id }),
+      }),
+    );
   });
 }

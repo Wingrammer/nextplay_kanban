@@ -1,16 +1,30 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import { parseSession, readSession, writeSession, SessionConfigurationError, type Session } from "./session";
+import {
+  parseSession,
+  readSession,
+  writeSession,
+  SessionConfigurationError,
+  type Session,
+} from "./session";
 
 export class ApiError extends Error {
-  constructor(message: string, public status = 502) { super(message); }
+  constructor(
+    message: string,
+    public status = 502,
+  ) {
+    super(message);
+  }
 }
 
 export async function backend(path: string, init: RequestInit = {}) {
   const base = process.env.KANBAN_BACKEND_URL;
   if (!base) throw new ApiError("KANBAN_BACKEND_URL is not configured", 503);
   return fetch(`${base.replace(/\/$/, "")}${path}`, {
-    ...init, cache: "no-store", redirect: "error", signal: init.signal ?? AbortSignal.timeout(15000),
+    ...init,
+    cache: "no-store",
+    redirect: "error",
+    signal: init.signal ?? AbortSignal.timeout(15000),
   });
 }
 
@@ -32,18 +46,30 @@ async function refresh(session: Session) {
   if (!pending) {
     pending = (async () => {
       const response = await backend("/auth/refresh", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh_token: session.refresh_token }),
       });
-      if (response.status === 404) throw new ApiError("Configure a backend refresh endpoint to continue this session", 503);
-      if (!response.ok) throw new ApiError("Unable to refresh session. Your existing session has been preserved.", response.status === 400 || response.status === 401 ? 401 : 502);
+      if (response.status === 404)
+        throw new ApiError("Configure a backend refresh endpoint to continue this session", 503);
+      if (!response.ok)
+        throw new ApiError(
+          "Unable to refresh session. Your existing session has been preserved.",
+          response.status === 400 || response.status === 401 ? 401 : 502,
+        );
       const next = parseSession(await response.json());
-      if (next.user.id !== session.user.id) throw new ApiError("Refresh changed the session identity");
+      if (next.user.id !== session.user.id)
+        throw new ApiError("Refresh changed the session identity");
       return next;
     })();
     refreshing.set(session.refresh_token, pending);
     // Short grace period covers concurrent responses using the previous cookie.
-    void pending.then(() => { setTimeout(() => refreshing.delete(session.refresh_token), 10000).unref(); }, () => refreshing.delete(session.refresh_token));
+    void pending.then(
+      () => {
+        setTimeout(() => refreshing.delete(session.refresh_token), 10000).unref();
+      },
+      () => refreshing.delete(session.refresh_token),
+    );
   }
   const next = await pending;
   await writeSession(next);
@@ -57,7 +83,14 @@ export async function requireSession() {
 }
 
 export async function authorized(path: string, session: Session, init: RequestInit = {}) {
-  const send = (s: Session) => backend(path, { ...init, headers: { ...Object.fromEntries(new Headers(init.headers)), Authorization: `Bearer ${s.access_token}` } });
+  const send = (s: Session) =>
+    backend(path, {
+      ...init,
+      headers: {
+        ...Object.fromEntries(new Headers(init.headers)),
+        Authorization: `Bearer ${s.access_token}`,
+      },
+    });
   let response = await send(session);
   if (response.status === 401) response = await send(await refresh(session));
   return response;
@@ -68,11 +101,15 @@ export function json(value: unknown, status = 200) {
 }
 
 export async function handle(action: () => Promise<Response>) {
-  try { return await action(); }
-  catch (error) {
+  try {
+    return await action();
+  } catch (error) {
     if (error instanceof SessionConfigurationError) return json({ error: error.message }, 503);
     if (error instanceof ApiError) return json({ error: error.message }, error.status);
-    return json({ error: "Unable to complete the request. Check server configuration and session validity." }, 502);
+    return json(
+      { error: "Unable to complete the request. Check server configuration and session validity." },
+      502,
+    );
   }
 }
 
@@ -81,12 +118,30 @@ export async function body(request: Request): Promise<Record<string, unknown>> {
     const value = await request.json();
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
     return value;
-  } catch { throw new ApiError("Expected a JSON object", 400); }
+  } catch {
+    throw new ApiError("Expected a JSON object", 400);
+  }
 }
 
 export async function proxy(response: Response) {
-  if (!response.ok) return json({ error: "The backend rejected the request" }, response.status);
-  return new Response(response.body, { status: response.status, headers: {
-    "Content-Type": response.headers.get("content-type") || "application/json", "Cache-Control": "no-store",
-  } });
+  if (!response.ok) {
+    const failure = await response.json().catch(() => null);
+    const safeMessage =
+      [400, 403, 404].includes(response.status) && typeof failure?.error === "string";
+    return json(
+      {
+        error: safeMessage
+          ? failure.error
+          : "The backend could not complete the request. Please try again.",
+      },
+      response.status,
+    );
+  }
+  return new Response(response.body, {
+    status: response.status,
+    headers: {
+      "Content-Type": response.headers.get("content-type") || "application/json",
+      "Cache-Control": "no-store",
+    },
+  });
 }

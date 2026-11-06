@@ -1,4 +1,12 @@
-import { authorized, backend, body, handle, proxy, requireSession, sameOrigin } from "@/app/lib/backend";
+import {
+  authorized,
+  backend,
+  body,
+  handle,
+  proxy,
+  requireSession,
+  sameOrigin,
+} from "@/app/lib/backend";
 
 type Context = { params: Promise<{ path: string[] }> };
 
@@ -7,9 +15,14 @@ async function forward(request: Request, context: Context) {
   return handle(async () => {
     const { path } = await context.params;
     const route = path.join("/");
-    const allowed = request.method === "GET"
-      ? /^(workspace|boards\/[^/]+\/events|boards\/[^/]+\/tasks\/[^/]+)$/.test(route)
-      : /^(invitations\/accept|boards\/[^/]+\/(members|labels|tasks)|boards\/[^/]+\/tasks\/[^/]+(\/(comments|labels))?)$/.test(route);
+    const allowed =
+      request.method === "DELETE"
+        ? /^boards\/[^/]+$/.test(route)
+        : request.method === "GET"
+          ? /^(workspace|boards\/[^/]+\/events|boards\/[^/]+\/tasks\/[^/]+)$/.test(route)
+          : /^(invitations\/accept|boards\/[^/]+\/(members|labels|tasks)|boards\/[^/]+\/tasks\/[^/]+(\/(comments|labels))?)$/.test(
+              route,
+            );
     if (!allowed) return Response.json({ error: "Route not found" }, { status: 404 });
     if (request.method !== "GET") sameOrigin(request);
     const session = await requireSession();
@@ -21,12 +34,25 @@ async function forward(request: Request, context: Context) {
         signal: request.signal,
       });
       if (!stream.ok) return proxy(stream);
-      return new Response(stream.body, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store", "X-Accel-Buffering": "no" } });
+      return new Response(stream.body, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-store",
+          "X-Accel-Buffering": "no",
+        },
+      });
     }
-    return proxy(await authorized(upstream, session, {
-      method: request.method,
-      ...(request.method !== "GET" ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(await body(request)) } : {}),
-    }));
+    return proxy(
+      await authorized(upstream, session, {
+        method: request.method,
+        ...(request.method !== "GET"
+          ? {
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(await body(request)),
+            }
+          : {}),
+      }),
+    );
   });
 }
 
@@ -34,3 +60,4 @@ export const GET = forward;
 export const POST = forward;
 export const PATCH = forward;
 export const PUT = forward;
+export const DELETE = forward;

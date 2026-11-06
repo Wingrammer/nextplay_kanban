@@ -1,0 +1,5 @@
+node_modules
+.next
+.work
+pnpm-lock.yaml
+public

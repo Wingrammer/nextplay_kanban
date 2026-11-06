@@ -15,10 +15,12 @@ export async function PATCH(request: Request, { params }: Context) {
     sameOrigin(request);
     const session = await requireSession();
     const { taskId } = await params;
-    return proxy(await authorized(`/tasks/${encodeURIComponent(taskId)}`, session, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(await body(request)),
-    }));
+    return proxy(
+      await authorized(`/tasks/${encodeURIComponent(taskId)}`, session, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(await body(request)),
+      }),
+    );
   });
 }

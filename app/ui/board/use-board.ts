@@ -19,10 +19,16 @@ export function useBoard() {
   const reload = useCallback(async (id?: string) => {
     const requested = id ?? boardID.current;
     const sequence = ++requestNumber.current;
-    const result = await boardRequest<Workspace>(`workspace${requested ? `?board=${encodeURIComponent(requested)}` : ""}`);
+    const result = await boardRequest<Workspace>(
+      `workspace${requested ? `?board=${encodeURIComponent(requested)}` : ""}`,
+    );
     if (sequence !== requestNumber.current) return;
     boardID.current = result.board.id;
-    result.tasks = result.tasks.map(task => ({ ...task, status: optimistic.current.get(task.id) || normalizeStatus(task.status), assignee_ids: task.assignee_ids || [] }));
+    result.tasks = result.tasks.map((task) => ({
+      ...task,
+      status: optimistic.current.get(task.id) || normalizeStatus(task.status),
+      assignee_ids: task.assignee_ids || [],
+    }));
     setWorkspace(result);
     setError("");
   }, []);
@@ -34,16 +40,38 @@ export function useBoard() {
       const url = new URL(window.location.href);
       let selected = window.localStorage.getItem("kanban_board") || undefined;
       if (url.searchParams.has("invite")) {
-        selected = await boardRequest<string>("invitations/accept", "POST", { token: url.searchParams.get("invite") });
+        try {
+          selected = await boardRequest<string>("invitations/accept", "POST", {
+            token: url.searchParams.get("invite"),
+          });
+          setNotice("You joined the board. Welcome to the team!");
+        } catch (value) {
+          selected = undefined;
+          setNotice(
+            `Invitation unavailable: ${value instanceof Error ? value.message : "please request a new link"}. Your personal board is open.`,
+          );
+        }
         url.searchParams.delete("invite");
         window.history.replaceState(null, "", url.pathname + url.search);
-        setNotice("You joined the board. Welcome to the team!");
       }
       if (!active) return;
-      try { await reload(selected); } catch { await reload(""); }
+      try {
+        await reload(selected);
+      } catch {
+        await reload("");
+      }
     }
-    void initialize().catch(value => { if (active) setError(value instanceof Error ? value.message : "Unable to open your workspace"); }).finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+    void initialize()
+      .catch((value) => {
+        if (active)
+          setError(value instanceof Error ? value.message : "Unable to open your workspace");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [reload]);
 
   // SSE carries invalidations after committed writes, never drag coordinates.
@@ -53,32 +81,64 @@ export function useBoard() {
     if (!id) return;
     window.localStorage.setItem("kanban_board", id); // Only a board ID, never tokens.
     const stream = new EventSource(`/api/collaboration/boards/${id}/events`);
-    const reconcile = () => { void reload().catch(() => setConnection("Reconnecting")); };
-    stream.addEventListener("ready", () => { setConnection("Live"); reconcile(); });
+    const reconcile = () => {
+      void reload().catch(() => setConnection("Reconnecting"));
+    };
+    stream.addEventListener("ready", () => {
+      setConnection("Live");
+      reconcile();
+    });
     stream.addEventListener("board_changed", reconcile);
-    stream.addEventListener("access_changed", () => { stream.close(); setConnection("Access changed"); void reload("").catch(value => setError(value.message)); });
+    stream.addEventListener("stream_error", () => setConnection("Reconnecting"));
+    stream.addEventListener("access_changed", () => {
+      stream.close();
+      setConnection("Access changed");
+      void reload("").catch((value) => setError(value.message));
+    });
     stream.addEventListener("session_expired", () => {
       stream.close();
-      void ensureGuest().then(() => setStreamGeneration(value => value + 1)).catch(value => setError(value.message));
+      void ensureGuest()
+        .then(() => setStreamGeneration((value) => value + 1))
+        .catch((value) => setError(value.message));
     });
     stream.onerror = () => setConnection("Reconnecting");
-    return () => { stream.close(); };
+    return () => {
+      stream.close();
+    };
   }, [workspace?.board.id, streamGeneration, reload]);
 
   async function move(task: Task, status: Status) {
     if (optimistic.current.has(task.id) || task.status === status || !workspace) return;
     optimistic.current.set(task.id, status);
-    setSaving(current => new Set(current).add(task.id));
-    setWorkspace(current => current && ({ ...current, tasks: current.tasks.map(value => value.id === task.id ? { ...value, status } : value) }));
+    setSaving((current) => new Set(current).add(task.id));
+    setWorkspace(
+      (current) =>
+        current && {
+          ...current,
+          tasks: current.tasks.map((value) =>
+            value.id === task.id ? { ...value, status } : value,
+          ),
+        },
+    );
     try {
       await boardRequest(`boards/${workspace.board.id}/tasks/${task.id}`, "PATCH", { status });
       setNotice("Task moved.");
     } catch (value) {
       setError(value instanceof Error ? value.message : "Move could not be saved");
-      setWorkspace(current => current && ({ ...current, tasks: current.tasks.map(item => item.id === task.id ? task : item) }));
+      setWorkspace(
+        (current) =>
+          current && {
+            ...current,
+            tasks: current.tasks.map((item) => (item.id === task.id ? task : item)),
+          },
+      );
     } finally {
       optimistic.current.delete(task.id);
-      setSaving(current => { const next = new Set(current); next.delete(task.id); return next; });
+      setSaving((current) => {
+        const next = new Set(current);
+        next.delete(task.id);
+        return next;
+      });
       // Last-write-wins: reload the authoritative state, including another user's drop.
       void reload().catch(() => setConnection("Reconnecting"));
     }
@@ -86,8 +146,25 @@ export function useBoard() {
 
   async function switchBoard(id: string) {
     setLoading(true);
-    try { await reload(id); } catch (value) { setError(value instanceof Error ? value.message : "Unable to open board"); }
-    finally { setLoading(false); }
+    try {
+      await reload(id);
+    } catch (value) {
+      setError(value instanceof Error ? value.message : "Unable to open board");
+    } finally {
+      setLoading(false);
+    }
   }
-  return { workspace, loading, error, notice, connection, saving, move, reload, switchBoard, setError, setNotice };
+  return {
+    workspace,
+    loading,
+    error,
+    notice,
+    connection,
+    saving,
+    move,
+    reload,
+    switchBoard,
+    setError,
+    setNotice,
+  };
 }

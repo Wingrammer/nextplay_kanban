@@ -32,21 +32,21 @@ identity instead of silently creating a replacement guest.
 
 Only two frontend environment variables are required:
 
-| Variable | Purpose |
-| --- | --- |
+| Variable             | Purpose                                                         |
+| -------------------- | --------------------------------------------------------------- |
 | `KANBAN_BACKEND_URL` | Gin API URL; defaults in the example to `http://localhost:8080` |
-| `SESSION_SECRET` | 32-byte encryption key represented as 64 hexadecimal characters |
+| `SESSION_SECRET`     | 32-byte encryption key represented as 64 hexadecimal characters |
 
 ## API boundary
 
-| Next.js route | Gin endpoint |
-| --- | --- |
-| `POST /api/auth/guest` | `POST /auth/guest` (only when there is no session) |
-| `POST /api/auth/link` | `POST /auth/link` |
-| `GET /api/tasks` | `GET /users/:user_id/tasks` using the session's user ID |
-| `POST /api/tasks` | `POST /tasks` using the session's user ID |
-| `GET /api/tasks/:taskId` | `GET /tasks/:task_id` |
-| `PATCH /api/tasks/:taskId` | `PATCH /tasks/:task_id` |
+| Next.js route              | Gin endpoint                                            |
+| -------------------------- | ------------------------------------------------------- |
+| `POST /api/auth/guest`     | `POST /auth/guest` (only when there is no session)      |
+| `POST /api/auth/link`      | `POST /auth/link`                                       |
+| `GET /api/tasks`           | `GET /users/:user_id/tasks` using the session's user ID |
+| `POST /api/tasks`          | `POST /tasks` using the session's user ID               |
+| `GET /api/tasks/:taskId`   | `GET /tasks/:task_id`                                   |
+| `PATCH /api/tasks/:taskId` | `PATCH /tasks/:task_id`                                 |
 
 Refresh tokens are sent only from the Next.js server to Gin's `POST /auth/refresh`.
 Cookies use SameSite=Lax, HttpOnly, and Secure in production. Mutation routes
@@ -64,9 +64,30 @@ host and protocol. Session responses and task requests disable caching.
 - Link a guest to email/password from the account button. Login, recovery, and
   email callback screens are outside this guest-to-account flow.
 
+## Collaboration features
+
+- Shared boards with named team members, optional accent colors, multiple task
+  assignees, and assignee avatars. Owners create private invitation links from
+  the team dialog; links expire in seven days and are single-use.
+- Gin SSE delivers changes after committed writes. Drag previews are local;
+  drops use optimistic UI and last-committed-write-wins reconciliation.
+- Task details include persistent chronological comments and a timestamped
+  activity timeline generated atomically by database triggers.
+- Board-specific labels, multiple tags per task, calendar due dates, overdue
+  and due-soon badges, combined text/priority/person/label filters, and whole-board
+  total/completed/overdue statistics.
+- Folder-shaped task cards keep the starter's neutral palette and Poppins.
+
+The browser uses `/api/collaboration/...` for these features. Next.js forwards
+the user's JWT to Gin; it contains no Supabase client or database credentials.
+The earlier `/api/tasks` routes remain compatible with the personal-task API.
+
+See [the architecture walkthrough](docs/architecture.md) for a file-by-file guide,
+the event flow, invitation rules, and the conflict-policy tradeoffs.
+
 ## Validation and deployment
 
-Run `pnpm lint` and `pnpm build`. Backend endpoint and repository tests live
+Run `pnpm test`, `pnpm lint`, and `pnpm build`. Backend endpoint and repository tests live
 with Gin and run with `go test ./...` from that repository.
 
 Deploy Next.js and Gin separately. Configure the same frontend encryption key
