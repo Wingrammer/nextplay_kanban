@@ -6,7 +6,8 @@ import type { Task, Workspace } from "@/app/lib/tasks";
 import { Icon } from "./primitives";
 
 type Comment = { id: string; author_name: string; body: string; created_at: string };
-type Details = { comments: Comment[] };
+type Activity = { id: string; actor_name: string; description: string; created_at: string };
+type Details = { comments: Comment[]; activity?: Activity[] };
 
 export function TaskDiscussion({ workspace, task }: { workspace: Workspace; task: Task }) {
   const [details, setDetails] = useState<Details | null>(null);
@@ -45,5 +46,12 @@ export function TaskDiscussion({ workspace, task }: { workspace: Workspace; task
       <label>Add a comment<textarea value={text} onChange={event => setText(event.target.value)} required maxLength={2000} rows={3} placeholder="Share an update or ask a question..." disabled={busy} /></label>
       <button className="secondary-button" disabled={busy || !text.trim()}>{busy ? "Posting..." : "Post comment"}</button>
     </form>
+    <section className="activity-section" aria-label="Task activity">
+      <h3><Icon name="clock" size={17} />Activity</h3>
+      {!details?.activity?.length && <p className="discussion-empty">Task changes will appear here as the work moves forward.</p>}
+      <ol className="activity-list">{details?.activity?.map(event => <li key={event.id}>
+        <span className="activity-point" /><div><p><strong>{event.actor_name}</strong> {event.description}</p><time dateTime={event.created_at}>{new Date(event.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</time></div>
+      </li>)}</ol>
+    </section>
   </section>;
 }
