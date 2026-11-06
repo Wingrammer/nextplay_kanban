@@ -1,79 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kanban frontend
 
-## Authentication setup
+A responsive Kanban board built with Next.js App Router, TypeScript, Tailwind
+CSS, and Poppins. Uses the starter's neutral light/dark palette.
 
-Copy `.env.example` to `.env.local`. Set `KANBAN_BACKEND_URL`, generate a
-64-character hexadecimal `SESSION_SECRET` using the command in the example,
-and set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` for the same project used
-by Gin. Enable anonymous sign-ins in Supabase and start the Gin backend.
-Never use a secret or service-role key.
+## Architecture
 
-Open the workspace button to initialize or reuse the guest session and load
-tasks. The account form links that same user through Gin. Follow any email
-confirmation instructions from Supabase. Login, recovery, and email callback
-flows are not included in this guest-to-account handoff.
-
-The browser calls only Next.js routes:
-
-- `POST /api/auth/guest`: initializes once or reuses the existing session.
-- `POST /api/auth/link`: validates email/password and links the current guest.
-- `GET /api/tasks`: lists tasks for the user from the session.
-- `POST /api/tasks`: forwards the task JSON with the session's `user_id`.
-- `GET /api/tasks/:taskId`: retrieves a task, with authorization enforced by Gin/RLS.
-
-Sessions contain only access/refresh tokens, expiry, and user ID. They are
-encrypted and authenticated with AES-256-GCM in an HttpOnly, SameSite=Lax
-cookie (Secure in production). Session responses disable caching. Mutation
-routes require an Origin matching the public request URL; configure your
-reverse proxy to preserve that URL. Tokens never enter browser JavaScript.
-
-Before expiry, or after one backend 401, Next.js refreshes using the official
-Supabase client on the server. Optionally set `KANBAN_REFRESH_PATH` to use a Gin
-refresh endpoint instead; it must accept `{ "refresh_token": "..." }` and return
-`access_token`, `refresh_token`, `expires_at` (or `expires_in`), and `user.id`.
-Refresh failures retain the existing identity and never create a replacement
-guest. Refresh calls are deduplicated within one server process; multi-instance
-deployments should coordinate token rotation with a shared session store.
-Cookies expire after 30 idle days. Losing the cookie or changing the encryption
-key loses guest access, so link the account before clearing browser data.
-
-Run `pnpm test:auth` for mock-backend integration checks covering guest reuse,
-cookie flags, token secrecy, cross-origin rejection, task ownership, linking,
-both refresh transports, and preservation of identity after refresh failures.
-The test starts a separate development server on port 3197 and uses its own
-build directory. No live Supabase credentials are needed.
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```text
+Browser → Next.js session/proxy routes → Gin API → Supabase Auth / Postgres
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Gin owns authentication, token refresh, task validation, database access, and
+database migrations. Supabase credentials and SQL migrations belong in the
+`kanban-backend` repository. This frontend has no Supabase client or database
+connection.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Next.js stores the session in an authenticated, encrypted HttpOnly cookie and
+forwards the access token to Gin. Tokens are never exposed to browser JavaScript.
+Before expiry, or after one upstream 401, Next.js calls Gin's `/auth/refresh`,
+updates the cookie, and retries as needed. Failed refreshes preserve the existing
+identity instead of silently creating a replacement guest.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Local setup
 
-## Learn More
+1. Follow the setup instructions in `../kanban-backend/README`, including its
+   Supabase migrations and anonymous sign-in configuration. Start Gin.
+2. Run `pnpm install`.
+3. Copy `.env.example` to `.env.local`. Set `KANBAN_BACKEND_URL` and generate
+   `SESSION_SECRET` with the command in the example. Keep this secret stable
+   across restarts and server instances.
+4. Run `pnpm dev` and open http://localhost:3000.
 
-To learn more about Next.js, take a look at the following resources:
+Only two frontend environment variables are required:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Variable | Purpose |
+| --- | --- |
+| `KANBAN_BACKEND_URL` | Gin API URL; defaults in the example to `http://localhost:8080` |
+| `SESSION_SECRET` | 32-byte encryption key represented as 64 hexadecimal characters |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## API boundary
 
-## Deploy on Vercel
+| Next.js route | Gin endpoint |
+| --- | --- |
+| `POST /api/auth/guest` | `POST /auth/guest` (only when there is no session) |
+| `POST /api/auth/link` | `POST /auth/link` |
+| `GET /api/tasks` | `GET /users/:user_id/tasks` using the session's user ID |
+| `POST /api/tasks` | `POST /tasks` using the session's user ID |
+| `GET /api/tasks/:taskId` | `GET /tasks/:task_id` |
+| `PATCH /api/tasks/:taskId` | `PATCH /tasks/:task_id` |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Refresh tokens are sent only from the Next.js server to Gin's `POST /auth/refresh`.
+Cookies use SameSite=Lax, HttpOnly, and Secure in production. Mutation routes
+require a matching Origin/Host. Configure a reverse proxy to preserve the public
+host and protocol. Session responses and task requests disable caching.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Board behavior
+
+- Guest sessions open automatically and persist across reloads.
+- Create/edit tasks, search by title or description, and filter by status/priority.
+- Move cards with their drag handle, left/right arrow keys on the handle, or
+  their status menu. Changes save through Gin and roll back on failure.
+- Board/list views, responsive columns, loading skeletons, empty states, and
+  retryable errors.
+- Link a guest to email/password from the account button. Login, recovery, and
+  email callback screens are outside this guest-to-account flow.
+
+## Validation and deployment
+
+Run `pnpm lint` and `pnpm build`. Backend endpoint and repository tests live
+with Gin and run with `go test ./...` from that repository.
+
+Deploy Next.js and Gin separately. Configure the same frontend encryption key
+on all Next.js instances. Refresh requests are deduplicated within one process;
+multiple instances should coordinate rotation through a shared session store.
+Cookies expire after 30 idle days. Clearing the cookie or changing the encryption
+key loses guest access, so link an account before clearing browser data.

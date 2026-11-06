@@ -1,9 +1,24 @@
-import { authorized, handle, proxy, requireSession } from "@/app/lib/backend";
+import { authorized, body, handle, proxy, requireSession, sameOrigin } from "@/app/lib/backend";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ taskId: string }> }) {
+type Context = { params: Promise<{ taskId: string }> };
+
+export async function GET(_request: Request, { params }: Context) {
   return handle(async () => {
     const session = await requireSession();
     const { taskId } = await params;
     return proxy(await authorized(`/tasks/${encodeURIComponent(taskId)}`, session));
+  });
+}
+
+export async function PATCH(request: Request, { params }: Context) {
+  return handle(async () => {
+    sameOrigin(request);
+    const session = await requireSession();
+    const { taskId } = await params;
+    return proxy(await authorized(`/tasks/${encodeURIComponent(taskId)}`, session, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(await body(request)),
+    }));
   });
 }

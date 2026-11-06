@@ -1,5 +1,4 @@
 import "server-only";
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { parseSession, readSession, writeSession, SessionConfigurationError, type Session } from "./session";
 
@@ -16,7 +15,12 @@ export async function backend(path: string, init: RequestInit = {}) {
 }
 
 export function sameOrigin(request: Request) {
-  if (request.headers.get("origin") !== new URL(request.url).origin) {
+  const url = new URL(request.url);
+  // Next may normalize request.url to localhost internally. The browser's Host
+  // header preserves the actual requested authority (including the port).
+  const authority = request.headers.get("host") || url.host;
+  const expected = `${url.protocol}//${authority}`;
+  if (request.headers.get("origin") !== expected) {
     throw new ApiError("Same-origin request required", 403);
   }
 }
@@ -27,21 +31,7 @@ async function refresh(session: Session) {
   let pending = refreshing.get(session.refresh_token);
   if (!pending) {
     pending = (async () => {
-      if (!process.env.KANBAN_REFRESH_PATH) {
-        const url = process.env.SUPABASE_URL;
-        const key = process.env.SUPABASE_PUBLISHABLE_KEY;
-        if (!url || !key) throw new ApiError("Configure Supabase server credentials or KANBAN_REFRESH_PATH to refresh sessions", 503);
-        const client = createClient(url, key, {
-          auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-          global: { fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(15000), cache: "no-store" }) },
-        });
-        const { data, error } = await client.auth.refreshSession({ refresh_token: session.refresh_token });
-        if (error || !data.session) throw new ApiError("Unable to refresh session. Your existing session has been preserved.", 401);
-        const next = parseSession(data.session);
-        if (next.user.id !== session.user.id) throw new ApiError("Refresh changed the session identity");
-        return next;
-      }
-      const response = await backend(process.env.KANBAN_REFRESH_PATH || "/auth/refresh", {
+      const response = await backend("/auth/refresh", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh_token: session.refresh_token }),
       });
